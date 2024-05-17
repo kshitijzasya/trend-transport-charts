@@ -21,6 +21,10 @@ const jsonOpts = {
   dateNF: 'd"/"m"/"yyyy',
 };
 
+interface CountObject {
+  [key: string]: number;
+}
+
 const generateOption = (title: string, data: object) => {
   return {
     title: {
@@ -45,8 +49,12 @@ const generateOption = (title: string, data: object) => {
 
 const _sortShapeCounts = (dataCounts: any, order: SORT_BY_TYPE) => {
   const sortedShapeCounts = Object.entries(dataCounts)
-    .sort(([, a], [, b]) => (order === SORT_BY_TYPE.ASC ? a - b : b - a))
-    .reduce((acc, [key, value]) => {
+    .sort(([, a], [, b]) =>
+      order === SORT_BY_TYPE.ASC
+        ? (a as number) - (b as number)
+        : (b as number) - (a as number)
+    )
+    .reduce((acc: any, [key, value]) => {
       acc[key] = value;
       return acc;
     }, {});
@@ -58,7 +66,7 @@ const ListCard = ({
   countObject,
   name,
 }: {
-  countObject: any;
+  countObject: CountObject;
   name: string;
 }) => {
   return (
@@ -76,7 +84,7 @@ const ChartContainer = ({
   countObject,
   name,
 }: {
-  countObject: any;
+  countObject: CountObject;
   name: string;
 }) => {
   return (
@@ -91,7 +99,7 @@ const ChartContainer = ({
 
 function App() {
   const [activeSheet, setActiveSheet] = useState(SheetName_Types.SALES);
-  const [workbookData, setWorkbookData] = useState<Object<any> | null>(null);
+  const [workbookData, setWorkbookData] = useState<any>(null);
   const [jsonData, setJsonData] = useState<Array<any>>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showCharts, setShowCharts] = useState<boolean>(false);
