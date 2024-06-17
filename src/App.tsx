@@ -1,137 +1,51 @@
 import "./App.css";
 import { useState } from "react";
 import * as xlsx from "xlsx";
-import ReactECharts from "echarts-for-react";
-
-enum SORT_BY_TYPE {
-  ASC = "asc",
-  DESC = "desc",
-}
-
-enum SheetName_Types {
-  SALES = "sale",
-  Amazon = "amazon",
-}
+import {
+  DIMENSION_A,
+  DIMENSION_B,
+  DIMENSION_C,
+  SPA_SHAPE,
+  SPA_SIZES,
+} from "./constant";
 
 const jsonOpts = {
   header: 1,
   defval: "",
-  blankrows: true,
+  blankrows: false,
   raw: false,
   dateNF: 'd"/"m"/"yyyy',
 };
 
-interface CountObject {
-  [key: string]: number;
-}
-
-const generateOption = (title: string, data: object) => {
-  return {
-    title: {
-      text: title,
-    },
-    tooltip: {},
-    xAxis: {
-      type: "category",
-      data: Object.keys(data),
-    },
-    yAxis: {
-      type: "value",
-    },
-    series: [
-      {
-        type: "bar",
-        data: Object.values(data),
-      },
-    ],
-  };
-};
-
-const _sortShapeCounts = (dataCounts: any, order: SORT_BY_TYPE) => {
-  const sortedShapeCounts = Object.entries(dataCounts)
-    .sort(([, a], [, b]) =>
-      order === SORT_BY_TYPE.ASC
-        ? (a as number) - (b as number)
-        : (b as number) - (a as number)
-    )
-    .reduce((acc: any, [key, value]) => {
-      acc[key] = value;
-      return acc;
-    }, {});
-
-  return sortedShapeCounts;
-};
-
-const ListCard = ({
-  countObject,
-  name,
-}: {
-  countObject: CountObject;
-  name: string;
-}) => {
-  return (
-    <div className="max-h-64 overflow-y-auto min-w-56 border border-slate-200 rounded-md p-4 space-y-2 text-left">
-      {Object.entries(countObject).map(([key, value], idx) => (
-        <p key={`${idx}-${name}`} className="text-sm font-medium">
-          {key}: {value}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-const ChartContainer = ({
-  countObject,
-  name,
-}: {
-  countObject: CountObject;
-  name: string;
-}) => {
-  return (
-    <div className="flex items-start gap-4 flex-wrap lg:flex-nowrap">
-      <div className="flex-1">
-        <ReactECharts option={generateOption(name, countObject)} />
-      </div>
-      <ListCard name={name} countObject={countObject} />
-    </div>
-  );
-};
-
 function App() {
-  const [activeSheet, setActiveSheet] = useState(SheetName_Types.SALES);
-  const [workbookData, setWorkbookData] = useState<any>(null);
   const [jsonData, setJsonData] = useState<Array<any>>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [showCharts, setShowCharts] = useState<boolean>(false);
-  const [sortOrder, setSortOrder] = useState<null | SORT_BY_TYPE>(null);
+  const [fileName, setFileName] = useState<string>("");
 
   const readUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      if (showCharts) setShowCharts(false);
       if (e.target.files) {
+        const filename = e.target.files[0].name;
+        setFileName(filename);
         setLoading(true);
+
         const reader = new FileReader();
         reader.onload = async (e: ProgressEvent<FileReader>) => {
           const data = e.target?.result;
+
           const workbook = await xlsx.read(data, {
             type: "array",
             cellText: false,
             cellDates: true,
           });
-          const findSalesSheet = workbook.SheetNames.find((sheetName) =>
-            sheetName?.toLocaleLowerCase().includes("sale")
-          );
-          const sheetName = findSalesSheet
-            ? findSalesSheet
-            : workbook.SheetNames[0];
+
+          const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const json: Array<any> = xlsx.utils.sheet_to_json(
             worksheet,
             jsonOpts
           );
-
           setJsonData(json);
-          setWorkbookData(workbook);
         };
         reader.readAsArrayBuffer(e.target.files[0]);
         reader.onloadend = () => {
@@ -144,66 +58,57 @@ function App() {
     }
   };
 
-  const keys: string[] = jsonData.length > 0 ? jsonData[0] : [];
-  const values = jsonData.length > 0 ? jsonData.slice(1) : [];
+  const handleExport = async () => {
+    if (jsonData.length > 0) {
+      const headerArray = jsonData[0];
 
-  const handleShowCharts = () => {
-    if (Array.isArray(keys) && Array.isArray(values)) {
-      setShowCharts(true);
-    }
-  };
+      const keyForShape = headerArray.findIndex((key) => key === SPA_SHAPE);
+      const keyForDimA = headerArray.findIndex((key) => key === DIMENSION_A);
+      const keyForDimB = headerArray.findIndex((key) => key === DIMENSION_B);
+      const keyForDimC = headerArray.findIndex((key) => key === DIMENSION_C);
 
-  // Helper function to count occurrences
-  const countOccurrences = (arr: Array<any>, keyIndex: number) => {
-    return arr.reduce((acc, curr) => {
-      // Normalize the key: trim whitespace, convert to lowercase, and remove special characters
-      const key =
-        curr[keyIndex]?.trim().toLowerCase().replace(/\r/g, "") || "unknown";
-      if (!acc[key]) {
-        acc[key] = 0;
-      }
-      acc[key]++;
-      return acc;
-    }, {});
-  };
+      const processedOrders = await jsonData.map((order, index) => {
+        if (index == 0) {
+          return [...order, "Recommended Size"];
+        }
+        if (index > 0) {
+          const dimA = order[keyForDimA]
+            ? order[keyForDimA].replace("?", "").trim()
+            : "";
+          const dimB = order[keyForDimB]
+            ? order[keyForDimB].replace("?", "").trim()
+            : "";
+          const dimC = order[keyForDimC]
+            ? order[keyForDimC].replace("?", "").trim()
+            : "";
+          const dimensions = [dimA, dimB, dimC];
 
-  // Indices for the columns of interest
-  const colorIndex = keys.indexOf("Color");
-  const shapeIndex = keys.indexOf("Spa Shape");
-  const sizeIndex = keys.indexOf("Size");
+          const fullSize = dimensions.filter((item) => item !== "").join("x");
 
-  // Count occurrences
-  const colorCounts = countOccurrences(values, colorIndex);
-  const shapeCounts = countOccurrences(values, shapeIndex);
-  const sizeCounts = countOccurrences(values, sizeIndex);
+          const spec = SPA_SIZES.find((spec) => {
+            const shapeMatch =
+              spec.shape.toLowerCase() === order[keyForShape].toLowerCase();
+            const includesFullSize = spec.variation_sizes.includes(
+              fullSize.toLowerCase()
+            );
+            return shapeMatch && includesFullSize;
+          });
 
-  const sortedColorCounts = sortOrder
-    ? _sortShapeCounts(colorCounts, sortOrder)
-    : colorCounts;
-  const sortedShapeCounts = sortOrder
-    ? _sortShapeCounts(shapeCounts, sortOrder)
-    : colorCounts;
-  const sortedSizeCounts = sortOrder
-    ? _sortShapeCounts(sizeCounts, sortOrder)
-    : colorCounts;
+          return [...order, spec ? spec?.size : ""];
+        } else [];
+      });
 
-  const handleSelectSheet = (sheetKey: SheetName_Types) => {
-    if (!workbookData) return;
-    try {
-      setActiveSheet(sheetKey);
-      const findSalesSheet = workbookData.SheetNames.find((sheetName: any) =>
-        sheetName?.toLocaleLowerCase().includes(sheetKey)
-      );
-      const sheetName = findSalesSheet
-        ? findSalesSheet
-        : workbookData.SheetNames[0];
-      const worksheet = workbookData.Sheets[sheetName];
+      // Create a workbook
+      const workbook = xlsx.utils.book_new();
 
-      const json: Array<any> = xlsx.utils.sheet_to_json(worksheet, jsonOpts);
+      // Convert the JSON data to a worksheet
+      const worksheet = xlsx.utils.aoa_to_sheet(processedOrders);
 
-      setJsonData(json);
-    } catch {
-      alert("Failed to show the data");
+      // Append the worksheet to the workbook
+      xlsx.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+      // Save the data as an Excel file
+      xlsx.writeFile(workbook, `Recommended_${fileName}`);
     }
   };
 
@@ -224,56 +129,10 @@ function App() {
         <button
           className="px-3 py-2 border border-slate-300 rounded-md my-6 disabled:bg-gray-200 disabled:opacity-60"
           disabled={jsonData?.length === 0 || loading}
-          onClick={handleShowCharts}
+          onClick={handleExport}
         >
-          {loading ? "Processing file" : "View Charts"}
+          {loading ? "Processing file" : "Export"}
         </button>
-        {showCharts && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center border rounded-md overflow-hidden divide-x">
-                <button
-                  className={`px-4 py-2 ${
-                    activeSheet === SheetName_Types.SALES ? "bg-gray-300" : ""
-                  }`}
-                  onClick={() => handleSelectSheet(SheetName_Types.SALES)}
-                >
-                  Sales Reports
-                </button>
-                <button
-                  className={`px-4 py-2 ${
-                    activeSheet === SheetName_Types.Amazon ? "bg-gray-300" : ""
-                  }`}
-                  onClick={() => handleSelectSheet(SheetName_Types.Amazon)}
-                >
-                  Amazon
-                </button>
-              </div>
-              <div className="flex items-center justify-end">
-                <select
-                  className="border border-slate-300 rounded-md p-2"
-                  value={sortOrder || ""}
-                  onChange={(e) => setSortOrder(e.target.value as SORT_BY_TYPE)}
-                >
-                  <option value="">Order by</option>
-                  <option value={SORT_BY_TYPE.ASC}>Asc</option>
-                  <option value={SORT_BY_TYPE.DESC}>Desc</option>
-                </select>
-              </div>
-            </div>
-
-            <ChartContainer
-              name="Color Counts"
-              countObject={sortedColorCounts}
-            />
-
-            <ChartContainer
-              name="Shape Counts"
-              countObject={sortedShapeCounts}
-            />
-            <ChartContainer name="Size Counts" countObject={sortedSizeCounts} />
-          </div>
-        )}
       </div>
     </div>
   );
