@@ -62,10 +62,18 @@ function App() {
     if (jsonData.length > 0) {
       const headerArray = jsonData[0];
 
-      const keyForShape = headerArray.findIndex((key) => key === SPA_SHAPE);
-      const keyForDimA = headerArray.findIndex((key) => key === DIMENSION_A);
-      const keyForDimB = headerArray.findIndex((key) => key === DIMENSION_B);
-      const keyForDimC = headerArray.findIndex((key) => key === DIMENSION_C);
+      const keyForShape = headerArray.findIndex(
+        (key: string) => key === SPA_SHAPE
+      );
+      const keyForDimA = headerArray.findIndex(
+        (key: string) => key === DIMENSION_A
+      );
+      const keyForDimB = headerArray.findIndex(
+        (key: string) => key === DIMENSION_B
+      );
+      const keyForDimC = headerArray.findIndex(
+        (key: string) => key === DIMENSION_C
+      );
 
       const processedOrders = await jsonData.map((order, index) => {
         if (index == 0) {
@@ -102,7 +110,8 @@ function App() {
       const workbook = xlsx.utils.book_new();
 
       // Convert the JSON data to a worksheet
-      const worksheet = xlsx.utils.aoa_to_sheet(processedOrders);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const worksheet = xlsx.utils.aoa_to_sheet(processedOrders as any[][]);
 
       // Append the worksheet to the workbook
       xlsx.utils.book_append_sheet(workbook, worksheet, "Orders");
