@@ -3,6 +3,10 @@ import { useState } from "react";
 import * as xlsx from "xlsx";
 import ReactECharts from "echarts-for-react";
 
+const SHAPE = "Spa Shape";
+const COLOR = "Color";
+const SIZE = "Size";
+
 enum SORT_BY_TYPE {
   ASC = "asc",
   DESC = "desc",
@@ -83,16 +87,24 @@ const ListCard = ({
 const ChartContainer = ({
   countObject,
   name,
+  columnName,
 }: {
   countObject: CountObject;
   name: string;
+  columnName?: string;
 }) => {
   return (
-    <div className="flex items-start gap-4 flex-wrap lg:flex-nowrap">
-      <div className="flex-1">
-        <ReactECharts option={generateOption(name, countObject)} />
+    <div>
+      <div className="flex items-start gap-4 flex-wrap lg:flex-nowrap">
+        <div className="flex-1">
+          <ReactECharts option={generateOption(name, countObject)} />
+        </div>
+
+        <ListCard name={name} countObject={countObject} />
       </div>
-      <ListCard name={name} countObject={countObject} />
+      <p className="text-start text-xs">
+        *Note: Column name should be {columnName} for {name} data.
+      </p>
     </div>
   );
 };
@@ -130,8 +142,44 @@ function App() {
             jsonOpts
           );
 
-          setJsonData(json);
-          setWorkbookData(workbook);
+          if (json.length > 0) {
+            const headerArray = json[0];
+            const keyForDimA = headerArray.findIndex(
+              (key: string) => key === "Dimension X"
+            );
+            const keyForDimB = headerArray.findIndex(
+              (key: string) => key === "Dimension Y"
+            );
+            const keyForDimC = headerArray.findIndex(
+              (key: string) => key === "Size-Z"
+            );
+
+            const processedOrders = await json.map((order, index) => {
+              if (index == 0) {
+                return [...order, "Size"];
+              }
+              if (index > 0) {
+                const dimA = order[keyForDimA]
+                  ? order[keyForDimA].replace("?", "").trim()
+                  : "";
+                const dimB = order[keyForDimB]
+                  ? order[keyForDimB].replace("?", "").trim()
+                  : "";
+                const dimC = order[keyForDimC]
+                  ? order[keyForDimC].replace("?", "").trim()
+                  : "";
+                const dimensions = [dimA, dimB, dimC];
+
+                const fullSize = dimensions
+                  .filter((item) => item !== "")
+                  .join("x");
+
+                return [...order, fullSize];
+              } else [];
+            });
+            setJsonData(processedOrders);
+            setWorkbookData(workbook);
+          }
         };
         reader.readAsArrayBuffer(e.target.files[0]);
         reader.onloadend = () => {
@@ -168,9 +216,9 @@ function App() {
   };
 
   // Indices for the columns of interest
-  const colorIndex = keys.indexOf("Color");
-  const shapeIndex = keys.indexOf("Spa Shape");
-  const sizeIndex = keys.indexOf("Size");
+  const colorIndex = keys.indexOf(COLOR);
+  const shapeIndex = keys.indexOf(SHAPE) || keys.indexOf("Shape");
+  const sizeIndex = keys.indexOf(SIZE);
 
   // Count occurrences
   const colorCounts = countOccurrences(values, colorIndex);
@@ -182,10 +230,10 @@ function App() {
     : colorCounts;
   const sortedShapeCounts = sortOrder
     ? _sortShapeCounts(shapeCounts, sortOrder)
-    : colorCounts;
+    : shapeCounts;
   const sortedSizeCounts = sortOrder
     ? _sortShapeCounts(sizeCounts, sortOrder)
-    : colorCounts;
+    : sizeCounts;
 
   const handleSelectSheet = (sheetKey: SheetName_Types) => {
     if (!workbookData) return;
@@ -204,6 +252,58 @@ function App() {
       setJsonData(json);
     } catch {
       alert("Failed to show the data");
+    }
+  };
+
+  const handleExport = async () => {
+    if (jsonData.length > 0) {
+      // Helper function to generate array from sorted counts
+      const generateResultArray = (
+        header: [string, string],
+        sortedCounts: number
+      ) => {
+        const resultArray = [header];
+        for (const [key, count] of Object.entries(sortedCounts)) {
+          resultArray.push([key, count.toString()]);
+        }
+        return resultArray;
+      };
+
+      // Create arrays for each category
+      const resultColorArray = generateResultArray(
+        ["Color", "Count"],
+        sortedColorCounts
+      );
+      const resultShapeArray = generateResultArray(
+        ["Shape", "Count"],
+        sortedShapeCounts
+      );
+      const resultSizeArray = generateResultArray(
+        ["Size", "Count"],
+        sortedSizeCounts
+      );
+
+      // List of processed orders with sheet names and data
+      const processedOrdersList = [
+        { sheetName: "Color", data: resultColorArray },
+        { sheetName: "Shape", data: resultShapeArray },
+        { sheetName: "Size", data: resultSizeArray },
+        // Add more processed orders as needed
+      ];
+
+      // Create a workbook
+      const workbook = xlsx.utils.book_new();
+
+      // Iterate over each processed order to create a sheet
+      processedOrdersList.forEach((order) => {
+        // Convert the data to a worksheet
+        const worksheet = xlsx.utils.aoa_to_sheet(order.data);
+        // Append the worksheet to the workbook with the specified sheet name
+        xlsx.utils.book_append_sheet(workbook, worksheet, order.sheetName);
+      });
+
+      // Save the data as an Excel file
+      xlsx.writeFile(workbook, `Summary_Sheet.xlsx`);
     }
   };
 
@@ -249,7 +349,13 @@ function App() {
                   Amazon
                 </button>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-4">
+                <button
+                  className="px-4 py-2 border border-gray-300 rounded-md"
+                  onClick={() => handleExport()}
+                >
+                  Export
+                </button>
                 <select
                   className="border border-slate-300 rounded-md p-2"
                   value={sortOrder || ""}
@@ -261,17 +367,24 @@ function App() {
                 </select>
               </div>
             </div>
+            <div className="space-y-8">
+              <ChartContainer
+                name="Color Counts"
+                countObject={sortedColorCounts}
+                columnName={COLOR}
+              />
 
-            <ChartContainer
-              name="Color Counts"
-              countObject={sortedColorCounts}
-            />
-
-            <ChartContainer
-              name="Shape Counts"
-              countObject={sortedShapeCounts}
-            />
-            <ChartContainer name="Size Counts" countObject={sortedSizeCounts} />
+              <ChartContainer
+                name="Shape Counts"
+                countObject={sortedShapeCounts}
+                columnName={SHAPE}
+              />
+              <ChartContainer
+                name="Size Counts"
+                countObject={sortedSizeCounts}
+                columnName={SIZE}
+              />
+            </div>
           </div>
         )}
       </div>
