@@ -3,7 +3,7 @@ import { useState } from "react";
 import * as xlsx from "xlsx";
 import ReactECharts from "echarts-for-react";
 
-const SHAPE = "Spa Shape";
+const SHAPE = "Shape";
 const COLOR = "Color";
 const SIZE = "Size";
 
@@ -103,7 +103,11 @@ const ChartContainer = ({
         <ListCard name={name} countObject={countObject} />
       </div>
       <p className="text-start text-xs">
-        *Note: Column name should be {columnName} for {name} data.
+        *Note: Column name should be{" "}
+        {columnName === SIZE
+          ? "Dimension X , Dimension Y and Size-Z"
+          : columnName}{" "}
+        for {name} data.
       </p>
     </div>
   );
@@ -217,7 +221,7 @@ function App() {
 
   // Indices for the columns of interest
   const colorIndex = keys.indexOf(COLOR);
-  const shapeIndex = keys.indexOf(SHAPE) || keys.indexOf("Shape");
+  const shapeIndex = keys.indexOf(SHAPE);
   const sizeIndex = keys.indexOf(SIZE);
 
   // Count occurrences
