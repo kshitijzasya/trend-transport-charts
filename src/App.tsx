@@ -7,6 +7,21 @@ const SHAPE = "Shape";
 const COLOR = "Color";
 const SIZE = "Size";
 
+const SAMPLE_HEADERS = [
+  "Order Date",
+  "Week",
+  "Year",
+  "Customer Purchase Order WO",
+  "Shape",
+  "Dimension X",
+  "Dimension Y",
+  "Size-Z",
+  "Skirt",
+  "Color",
+  "Foam Taper",
+  "Foam Density",
+];
+
 enum SORT_BY_TYPE {
   ASC = "asc",
   DESC = "desc",
@@ -311,6 +326,23 @@ function App() {
     }
   };
 
+  const handleSampleExport = async () => {
+    // Create a workbook
+    const workbook = xlsx.utils.book_new();
+
+    const sampleHeaders = [SAMPLE_HEADERS];
+
+    // Convert the JSON data to a worksheet
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const worksheet = xlsx.utils.aoa_to_sheet(sampleHeaders);
+
+    // Append the worksheet to the workbook
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+    // Save the data as an Excel file
+    xlsx.writeFile(workbook, `Sample_Excel.xlsx`);
+  };
+
   return (
     <div className="p-4">
       <div>
@@ -325,6 +357,12 @@ function App() {
           onChange={readUploadFile}
           accept=".xls, .xlsx, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         />
+        <div
+          className="text-blue-500 hover:underline text-left mt-2 cursor-pointer"
+          onClick={handleSampleExport}
+        >
+          Sample Excel
+        </div>
         <button
           className="px-3 py-2 border border-slate-300 rounded-md my-6 disabled:bg-gray-200 disabled:opacity-60"
           disabled={jsonData?.length === 0 || loading}
