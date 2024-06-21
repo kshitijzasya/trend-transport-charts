@@ -1,7 +1,8 @@
 import "./App.css";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import * as xlsx from "xlsx";
 import ReactECharts from "echarts-for-react";
+import { MultiSelect } from "react-multi-select-component";
 
 const SHAPE = "Shape";
 const COLOR = "Color";
@@ -135,6 +136,7 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [showCharts, setShowCharts] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<null | SORT_BY_TYPE>(null);
+  const [selectedSizes, setSelectedSizes] = useState<any[]>([]);
 
   const readUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -254,6 +256,8 @@ function App() {
     ? _sortShapeCounts(sizeCounts, sortOrder)
     : sizeCounts;
 
+  console.log({ sortedSizeCounts });
+
   const handleSelectSheet = (sheetKey: SheetName_Types) => {
     if (!workbookData) return;
     try {
@@ -343,6 +347,17 @@ function App() {
     xlsx.writeFile(workbook, `Sample_Excel.xlsx`);
   };
 
+  const options = Object.entries(sortedSizeCounts).map(([label, count]) => ({
+    label: `${label}`,
+    value: label,
+    count: count,
+  }));
+
+  const totalSelectedCount = useMemo(() => {
+    return selectedSizes.reduce((acc, option) => acc + (option.count || 0), 0);
+  }, [selectedSizes]);
+
+  console.log({ totalSelectedCount, selectedSizes });
   return (
     <div className="p-4">
       <div>
@@ -421,6 +436,17 @@ function App() {
                 countObject={sortedShapeCounts}
                 columnName={SHAPE}
               />
+              <div className="flex justify-end gap-4 items-center">
+                <div>Count : {totalSelectedCount}</div>
+                <div className="w-96">
+                  <MultiSelect
+                    options={options}
+                    value={selectedSizes}
+                    onChange={setSelectedSizes}
+                    labelledBy="Select"
+                  />{" "}
+                </div>
+              </div>
               <ChartContainer
                 name="Size Counts"
                 countObject={sortedSizeCounts}
