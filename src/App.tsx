@@ -140,6 +140,45 @@ function App() {
   );
   const [selectedSizes, setSelectedSizes] = useState<any[]>([]);
 
+  const toSetJsonData = async (data: any) => {
+    if (data.length > 0) {
+      const headerArray = data[0];
+      const keyForDimA = headerArray.findIndex(
+        (key: string) => key === "Dimension X"
+      );
+      const keyForDimB = headerArray.findIndex(
+        (key: string) => key === "Dimension Y"
+      );
+      const keyForDimC = headerArray.findIndex(
+        (key: string) => key === "Size-Z"
+      );
+
+      const processedOrders = await data.map((order: any, index: number) => {
+        if (index == 0) {
+          return [...order, "Size"];
+        }
+        if (index > 0) {
+          const dimA = order[keyForDimA]
+            ? order[keyForDimA].replace("?", "").trim()
+            : "";
+          const dimB = order[keyForDimB]
+            ? order[keyForDimB].replace("?", "").trim()
+            : "";
+          const dimC = order[keyForDimC]
+            ? order[keyForDimC].replace("?", "").trim()
+            : "";
+          const dimensions = [dimA, dimB, dimC];
+
+          const fullSize = dimensions.filter((item) => item !== "").join("x");
+
+          return [...order, fullSize];
+        } else [];
+      });
+
+      setJsonData(processedOrders);
+    }
+  };
+
   const readUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       if (showCharts) setShowCharts(false);
@@ -165,45 +204,8 @@ function App() {
             jsonOpts
           );
 
-          if (json.length > 0) {
-            const headerArray = json[0];
-            const keyForDimA = headerArray.findIndex(
-              (key: string) => key === "Dimension X"
-            );
-            const keyForDimB = headerArray.findIndex(
-              (key: string) => key === "Dimension Y"
-            );
-            const keyForDimC = headerArray.findIndex(
-              (key: string) => key === "Size-Z"
-            );
-
-            const processedOrders = await json.map((order, index) => {
-              if (index == 0) {
-                return [...order, "Size"];
-              }
-              if (index > 0) {
-                const dimA = order[keyForDimA]
-                  ? order[keyForDimA].replace("?", "").trim()
-                  : "";
-                const dimB = order[keyForDimB]
-                  ? order[keyForDimB].replace("?", "").trim()
-                  : "";
-                const dimC = order[keyForDimC]
-                  ? order[keyForDimC].replace("?", "").trim()
-                  : "";
-                const dimensions = [dimA, dimB, dimC];
-
-                const fullSize = dimensions
-                  .filter((item) => item !== "")
-                  .join("x");
-
-                return [...order, fullSize];
-              } else [];
-            });
-
-            setJsonData(processedOrders);
-            setWorkbookData(workbook);
-          }
+          toSetJsonData(json);
+          setWorkbookData(workbook);
         };
         reader.readAsArrayBuffer(e.target.files[0]);
         reader.onloadend = () => {
@@ -272,8 +274,7 @@ function App() {
       const worksheet = workbookData.Sheets[sheetName];
 
       const json: Array<any> = xlsx.utils.sheet_to_json(worksheet, jsonOpts);
-
-      setJsonData(json);
+      toSetJsonData(json);
     } catch {
       alert("Failed to show the data");
     }
