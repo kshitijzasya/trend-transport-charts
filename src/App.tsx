@@ -36,7 +36,7 @@ enum SheetName_Types {
 const jsonOpts = {
   header: 1,
   defval: "",
-  blankrows: true,
+  blankrows: false,
   raw: false,
   dateNF: 'd"/"m"/"yyyy',
 };
@@ -135,7 +135,9 @@ function App() {
   const [jsonData, setJsonData] = useState<Array<any>>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showCharts, setShowCharts] = useState<boolean>(false);
-  const [sortOrder, setSortOrder] = useState<null | SORT_BY_TYPE>(null);
+  const [sortOrder, setSortOrder] = useState<null | SORT_BY_TYPE>(
+    SORT_BY_TYPE.DESC
+  );
   const [selectedSizes, setSelectedSizes] = useState<any[]>([]);
 
   const readUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,6 +200,7 @@ function App() {
                 return [...order, fullSize];
               } else [];
             });
+
             setJsonData(processedOrders);
             setWorkbookData(workbook);
           }
@@ -256,8 +259,6 @@ function App() {
     ? _sortShapeCounts(sizeCounts, sortOrder)
     : sizeCounts;
 
-  console.log({ sortedSizeCounts });
-
   const handleSelectSheet = (sheetKey: SheetName_Types) => {
     if (!workbookData) return;
     try {
@@ -278,20 +279,28 @@ function App() {
     }
   };
 
+  // Helper function to generate array from sorted counts
+  const generateResultArray = (
+    header: any[],
+    sortedCounts: number,
+    isSizes: boolean = false
+  ) => {
+    const resultArray = [header];
+    for (const [key, count] of Object.entries(sortedCounts)) {
+      if (isSizes) {
+        // Split the key by 'x' and convert the parts to numbers
+        const dimensions = key.split("x");
+        // Push the resulting array to the resultArray
+        resultArray.push([...dimensions, count.toString()]);
+      } else {
+        resultArray.push([key, count.toString()]);
+      }
+    }
+    return resultArray;
+  };
+
   const handleExport = async () => {
     if (jsonData.length > 0) {
-      // Helper function to generate array from sorted counts
-      const generateResultArray = (
-        header: [string, string],
-        sortedCounts: number
-      ) => {
-        const resultArray = [header];
-        for (const [key, count] of Object.entries(sortedCounts)) {
-          resultArray.push([key, count.toString()]);
-        }
-        return resultArray;
-      };
-
       // Create arrays for each category
       const resultColorArray = generateResultArray(
         ["Color", "Count"],
@@ -302,8 +311,9 @@ function App() {
         sortedShapeCounts
       );
       const resultSizeArray = generateResultArray(
-        ["Size", "Count"],
-        sortedSizeCounts
+        ["Dim A", "Dim B", "Dim C", "Count"],
+        sortedSizeCounts,
+        true
       );
 
       // List of processed orders with sheet names and data
@@ -357,7 +367,6 @@ function App() {
     return selectedSizes.reduce((acc, option) => acc + (option.count || 0), 0);
   }, [selectedSizes]);
 
-  console.log({ totalSelectedCount, selectedSizes });
   return (
     <div className="p-4">
       <div>
@@ -443,8 +452,8 @@ function App() {
                     options={options}
                     value={selectedSizes}
                     onChange={setSelectedSizes}
-                    labelledBy="Select"
-                  />{" "}
+                    labelledBy="Select Multiple Sizes"
+                  />
                 </div>
               </div>
               <ChartContainer
